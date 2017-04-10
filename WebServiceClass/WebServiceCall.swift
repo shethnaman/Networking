@@ -1,24 +1,35 @@
-
+//
+//  WebServiceCall.swift
+//  DriveBuddy
+//
+//  Created by Arvaan Techno-lab Pvt Ltd on 18/06/15.
+//  Copyright (c) 2015 Arvaan Techno-lab Pvt Ltd. All rights reserved.
+//
 
 import UIKit
 import MobileCoreServices
 import CoreLocation
 
-
-typealias webCompletionHandler = (data : NSData) -> Void;
-typealias webFailuerHandler = (error : NSError,isCustomError : Bool) -> Void;
-
-
-struct KEMUserDefault {
+extension NSMutableData {
     
-    static let KeyIsFaceBookUser        = "isFaceBookUser"
-    static let KeyTimeZone              = "timezone"
-    static let KeyUserInfo              = "userInfo"
-    static let KeyDeviceToken           = "deviceToken"
-    static let KeyFaceBookFriends          = "faceBookFriends"
-    static let KeyPopUp                    = "popup"
-    static let KeyAnimation                = "Animation"
-    static let KeyCarbonTabIndex           = "Carbon"
+    //==========================================
+    //MARK: - To append string as a NSData
+    //==========================================
+    
+    func appendString(_ string: String) {
+        let data = string.data(using: String.Encoding.utf8, allowLossyConversion: true)
+        append(data!)
+    }
+    
+}
+typealias webCompletionHandler = (_ data : Data) -> Void;
+typealias webFailuerHandler = (_ error : NSError,_ isCustomError : Bool) -> Void;
+
+//typealias webHandler = (status:Bool,message:String?,userDict:NSMutableDictionary?)->Void
+
+enum AppSecret {
+    static let clientkeyforIOS = "02b960c3482efa7fe4e99e97262559c56026d893"
+    static let clientsecretforIOS = "e3f0d4f914db73e3b0e794ff486d63aa5d86e657"
 }
 
 let failureStatusCode = 0;
@@ -32,51 +43,30 @@ class WebServiceCall :NSObject {
         
     }
     
-    func setRequiredHeadersForRequest(urlRequest:NSMutableURLRequest)
+    func setRequiredHeadersForRequest(_ urlRequest:NSMutableURLRequest)
     {
-        
-        urlRequest.setValue("ios", forHTTPHeaderField: "ostype")
-        urlRequest.setValue("1.0", forHTTPHeaderField: "appversion");
-        
-        
-//        if (user signed in)
-//        {
-//            let user = AppData.sharedInstance().getModelForKey(KEMUserDefault.KeyUserInfo) as! String
-//            urlRequest.setValue(user, forHTTPHeaderField: UserData.kUserAccessToken)
-//            
-//        }
+        urlRequest.setValue(AppSecret.clientkeyforIOS, forHTTPHeaderField:UserData.kClientKey)
+        urlRequest.setValue(AppSecret.clientsecretforIOS, forHTTPHeaderField:UserData.kClientsecret)
+      
+        //    let user = AppData.sharedInstance().getModelForKey(key: BeaverQUserDefault.KeyUserInfo) as! User
+          //  urlRequest.setValue(user.userLoginToken!, forHTTPHeaderField: UserData.kUserAccessToken)
+            
+      
 //        else
 //        {
-//            urlRequest.setValue("", forHTTPHeaderField: UserData.kUserAccessToken)
+//            urlRequest.setValue("dfsbvdfbdfbfd", forHTTPHeaderField: UserData.kUserAccessToken)
 //        }
-//        
         
+       print(urlRequest.allHTTPHeaderFields!)
         
     }
     
-    func parseData(jsonData:NSData) -> NSMutableDictionary?
-    {
-        var mutableDict:NSMutableDictionary?
-        do
-        {
-            mutableDict = try NSJSONSerialization.JSONObjectWithData(jsonData, options: NSJSONReadingOptions.MutableContainers) as? NSMutableDictionary;
-            
-        }catch
-        {
-            NSLog("Error in parsing \n Please check this Response DATA \n\n  %@", NSString(data: jsonData, encoding: NSUTF8StringEncoding)!);
-        }
-        
-        return mutableDict!;
-    }
-
-    
-    func createBodyWithParameters(parameters: NSDictionary?,boundary: String) -> NSData {
+    func createBodyWithParameters(_ parameters: NSDictionary?,boundary: String) -> Data {
         let body = NSMutableData()
         
         if parameters != nil {
             for (key, value) in parameters! {
                 
-                print("key - \(key),\(value.dynamicType)")
                 if(value is String || value is NSString){
                     body.appendString("--\(boundary)\r\n")
                     body.appendString("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n")
@@ -96,12 +86,29 @@ class WebServiceCall :NSObject {
                     body.appendString("--\(boundary)\r\n")
                     body.appendString("Content-Disposition: form-data; name=\"\(key)\"; filename=\"\(filename)\"\r\n")
                     body.appendString("Content-Type: \(mimetype)\r\n\r\n")
-                    body.appendData(data!)
+                    body.append(data!)
                     body.appendString("\r\n")
                     
+                } else if(value is NSArray || value is NSMutableArray ){
+                    let images = value as! NSArray
+                    var i = 0;
+                    
+                    for item in images {
+                        let image = item as! UIImage
+                        let filename = "image\(i).jpg"
+                        let data = UIImageJPEGRepresentation(image ,1);
+                        let mimetype = mimeTypeForPath(filename)
+                        print("arra filename \(filename) image set \(mimetype) of size  \((data?.count)! / 1024)");
+                        body.appendString("--\(boundary)\r\n")
+                        body.appendString("Content-Disposition: form-data; name=\"\(key)[\(i)]\"; filename=\"\(filename)\"\r\n")
+                        body.appendString("Content-Type: \(mimetype)\r\n\r\n")
+                        body.append(data!)
+                        body.appendString("\r\n")
+                        i+=1;
+                    }
                 }
-                else if(value is NSData){
-                
+                else {
+                    
                     let filename = "image.mp4"
                     //let data = String(value)
                     let mimetype = mimeTypeForPath(filename)
@@ -109,40 +116,23 @@ class WebServiceCall :NSObject {
                     body.appendString("--\(boundary)\r\n")
                     body.appendString("Content-Disposition: form-data; name=\"\(key)\"; filename=\"\(filename)\"\r\n")
                     body.appendString("Content-Type: \(mimetype)\r\n\r\n")
-                    body.appendData(value as! NSData)
+                    body.append(value as! Data)
                     body.appendString("\r\n")
                     
-                    
-                }
-                else{
-                    let filename = "image.mp4"
-                    //let data = String(value)
-                    let mimetype = mimeTypeForPath(filename)
-                    
-                    body.appendString("--\(boundary)\r\n")
-                    body.appendString("Content-Disposition: form-data; name=\"\(key)\"; filename=\"\(filename)\"\r\n")
-                    body.appendString("Content-Type: \(mimetype)\r\n\r\n")
-                    body.appendData(value as! NSData)
-                    body.appendString("\r\n")
-
                     
                 }
             }
         }
-        
-        print("body",body)
         body.appendString("--\(boundary)--\r\n")
-        
-        
-        return body
+        return body as Data
     }
     
     func generateBoundaryString() -> String {
-        return "Boundary-\(NSUUID().UUIDString)"
+        return "Boundary-\(UUID().uuidString)"
     }
     
-    func mimeTypeForPath(path: String) -> String {
-        let str : NSString = path;
+    func mimeTypeForPath(_ path: String) -> String {
+        let str : NSString = path as NSString;
         let pathExtension = str.pathExtension
         var stringMimeType = "application/octet-stream";
         
@@ -156,30 +146,70 @@ class WebServiceCall :NSObject {
     
     
     
-    func createRequest (param : NSDictionary , strURL : String) -> NSURLRequest {
+    func createRequest (_ param : NSDictionary , strURL : String) -> URLRequest {
         
         let boundary = generateBoundaryString()
         
-        let url = NSURL(string: strURL)
-        let request: NSMutableURLRequest = NSMutableURLRequest(URL: url!)
-
+        let url = URL(string: strURL)
+        let request = NSMutableURLRequest(url: url!)
         
         self.setRequiredHeadersForRequest(request);
-        print(request)
+        
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.HTTPMethod = "POST"
-        request.HTTPBody = createBodyWithParameters(param, boundary: boundary)
-        return request
+        request.httpMethod = "POST"
+        request.httpBody = createBodyWithParameters(param, boundary: boundary)
+        
+       //  let response = UtilityClass.parseData(request.httpBody!)
+        print(request.httpBody!.description)
+        return request as URLRequest
     }
     
+    /*
+    func callPostWebService(methodURL methodURL :String, param:NSDictionary, handler : webHandler) -> Bool
+    {
+        
+        let request = self.createRequest(param, strURL: methodURL)
+        
+        let serviceTask = NSURLSession.sharedSession().dataTaskWithRequest(request, completionHandler: {
+            data, response, error in
+            
+            dispatch_async(dispatch_get_main_queue(), { () -> Void in
+                
+                if(error != nil){
+                    
+                    handler(status: false, message: error?.localizedDescription, userDict: nil);
+                }
+                else{
+                    
+                    let response = Utilities.parseData(data!)
+                    let status = response.objectForKey("status") as! Int;
+                    
+                    if(status == failureStatusCode){
+                        handler(status: false, message: response.objectForKey("message") as? String, userDict: nil);
+                    }
+                    else {
+                        handler(status: true, message: response.objectForKey("message") as? String, userDict: response);
+                    }
+                    
+                }
+                
+            })
+            
+            
+        })
+        serviceTask.resume();
+        
+        return true;
+    }
+    */
     
-     func callPostWebService(methodURL methodURL :String, param:NSMutableDictionary, completionHandler:webCompletionHandler, failureHandler: webFailuerHandler) -> Bool
+    func callPostWebService(methodURL :String, param:NSDictionary, completionHandler:@escaping webCompletionHandler, failureHandler: @escaping webFailuerHandler)
     {
         if (isInternetHasConnectivity() == false ) {
             let myError = NSError(domain: "Internet is not available", code: 1001, userInfo: nil)
-            failureHandler(error: myError, isCustomError: true);
-
-            return false;
+            failureHandler(myError, true);
+//            AlertView.showMessageAlert(myError.domain)
+            return
         }
         
 //        if(sharedAppDelegate.isActivityLoaderRequired){
@@ -187,183 +217,197 @@ class WebServiceCall :NSObject {
 //            DBActivityLoader.sharedActivityLoader.startAnimation()
 //        }
         
-        
         let request = self.createRequest(param, strURL: methodURL)
-        print(request.allHTTPHeaderFields)
-        let serviceTask = NSURLSession.sharedSession().dataTaskWithRequest(request, completionHandler: {
+        print(request)
+        let serviceTask = URLSession.shared.dataTask(with: request, completionHandler: {
             data, response, error in
             
-            dispatch_async(dispatch_get_main_queue(), { () -> Void in
-              
-//                //Hide Activity
-//                DBActivityLoader.sharedActivityLoader.stopAnimating()
-//                sharedAppDelegate.isActivityLoaderRequired = true
+            DispatchQueue.main.async(execute: { () -> Void in
+               
                 if(error != nil){
                     
-                    failureHandler(error: error!, isCustomError: false);
+                    failureHandler(error! as NSError, false);
                 }
                 else{
-//                    print(NSString(data: data!, encoding: NSUTF8StringEncoding));
-                    let response = self.parseData(data!)
-                    
-                    let status = response!.objectForKey("status_code") as! Int;
+                   print(NSString(data: data!, encoding: String.Encoding.utf8.rawValue)!);
+                    let response = UtilityClass.parseData(data!)
+                   // print(response)
+                    let status = response?.object(forKey: "status_code") as? Int;
                     
                     if(status == successStatusCode){
-                        completionHandler(data: data!)
+                        completionHandler(data!)
+                    }else if(status == 504){
+                        let dictRequests = UtilityClass.parseData(data!)
+                      
+                        let alert = UIAlertController(title: "Error", message: dictRequests!.object(forKey: "message") as? String, preferredStyle: UIAlertControllerStyle.alert)
+                        alert.addAction(UIAlertAction(title: "Ok", style: UIAlertActionStyle.default, handler: nil))
+                         let visibleVC = UIApplication.topViewController(UIApplication.shared.keyWindow?.rootViewController)
+                        visibleVC?.present(alert, animated: true, completion: nil)
+
+                    }else if (response?.object(forKey: "access_token") != nil){
+                        let accessToken = response?.object(forKey: "access_token") as! String
+                        print(accessToken)
+                        completionHandler(data!)
                     }
                     else {
-                        let msg = response!.objectForKey("message") as! String
-                        let error = NSError(domain: msg, code: Int(status), userInfo: nil);
-                        failureHandler(error: error, isCustomError: true);
+                        let msg = response?.object(forKey: "message") as! String
+                        let error = NSError(domain: msg, code:status!, userInfo: nil);
+                        failureHandler(error, true);
                     }
                     
                 }
                 
             })
         })
+        
         serviceTask.resume();
         
-        return true;
+        
     }
     
-    func callGetWebService(methodURL :String, completionHandler:webCompletionHandler, failureHandler: webFailuerHandler) -> Bool
+    func callGetWebService(_ methodURL :String, completionHandler:@escaping webCompletionHandler, failureHandler: @escaping webFailuerHandler)
     {
         
         if (isInternetHasConnectivity() == false ) {
             let myError = NSError(domain: "Internet is not available", code: 1001, userInfo: nil)
-            failureHandler(error: myError, isCustomError: true);
-//            AlertView.showMessageAlert(myError.domain)
-            return false;
+            failureHandler(myError, true);
+            //            AlertView.showMessageAlert(myError.domain)
+            
         }
-        
+//        
+//        if(sharedAppDelegate.isActivityLoaderRequired){
+//            //Show Activity Indicator
+//            DBActivityLoader.sharedActivityLoader.startAnimation()
+//        }
+//        
+        print("methodURL \(methodURL)")
 
-        
-        let url: NSURL = NSURL(string: methodURL)!
-        let request: NSMutableURLRequest = NSMutableURLRequest(URL: url)
+      //  let url: URL = URL(string: methodURL.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed)!)!
+        let url: URL = URL(string: methodURL)!
+        let request: NSMutableURLRequest = NSMutableURLRequest(url:url)
         
         self.setRequiredHeadersForRequest(request);
         
-        request.HTTPMethod = "GET";
+        request.httpMethod = "GET";
         
-        NSURLConnection.sendAsynchronousRequest(request, queue: NSOperationQueue()) { (response:NSURLResponse?, data: NSData?, error: NSError?) -> Void in
-        
-
+        let urlseesion = URLSession.shared.dataTask(with: request as URLRequest) { (data, resposne, error) in
+           
+            //Hide Activity
+           
             if(error != nil){
                 
-                let myError = NSError(domain: error!.description, code: error!.code, userInfo: nil)
-                failureHandler( error: myError ,isCustomError: false);
+                let myError = NSError(domain: (error as! NSError).description, code: (error as! NSError).code, userInfo: nil)
+                failureHandler( myError ,false);
             }
             else{
                 
                 let parsedObject: NSMutableDictionary?
                 
                 do {
-                    parsedObject = try NSJSONSerialization.JSONObjectWithData(data!,
-                        options: NSJSONReadingOptions.AllowFragments) as? NSMutableDictionary;
+                    parsedObject = try JSONSerialization.jsonObject(with: data!,options: [JSONSerialization.ReadingOptions.allowFragments, JSONSerialization.ReadingOptions.mutableContainers]) as? NSMutableDictionary;
+                   
                 } catch _ {
                     NSLog("Get method Parsing error ");
                     parsedObject = nil
                 }
-//                let responseString : NSString = NSString(data: data!, encoding: NSUTF8StringEncoding)!;
-//                print(responseString);
-//                print(parsedObject);
-                
-                if(parsedObject?.objectForKey("status_code")?.integerValue == 200){
+               
+                if(parsedObject?.object(forKey: "status_code") as? Int == 200){
                     
-                    dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                        completionHandler( data: data!);
+                    DispatchQueue.main.async(execute: { () -> Void in
+                        completionHandler( data!);
                     })
                     
                 }
-                else if(parsedObject?.objectForKey("status_code")?.integerValue == 200){
+                else if(parsedObject?.object(forKey: "status_code") as? Int == 200){
                     
-                    dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                        completionHandler( data: data!);
+                    DispatchQueue.main.async(execute: { () -> Void in
+                        completionHandler( data!);
                     })
                     
                 }
-                else if(parsedObject?.objectForKey("status_code")?.integerValue == 504){
-                     let dictRequests = self.parseData(data!)
-//                    UtilityClass.showAlertWithMessage("Error", andMessage: dictRequests!.objectForKey("message") as! String, andAlertType: AlertType.SUCCESS, withDismissHandler: {
-//                        
-//                        
-//                        sharedAppDelegate.sessionExpired()
-//                    })
-
+                else if((parsedObject!.object(forKey: "status_code")! as AnyObject).intValue == 504){
+                    let dictRequests = UtilityClass.parseData(data!)
+                    let alert = UIAlertController(title: "Error", message:dictRequests!.object(forKey: "message") as? String, preferredStyle: UIAlertControllerStyle.alert)
+                    alert.addAction(UIAlertAction(title: "Ok", style: UIAlertActionStyle.default, handler: nil))
+                     let visibleVC = UIApplication.topViewController(UIApplication.shared.keyWindow?.rootViewController)
+                    visibleVC?.present(alert, animated: true, completion: nil)
+                    
+                  
                 }
                 else{
                     
                     if(parsedObject != nil){
                         
-                        let message = parsedObject?.objectForKey("message") as! String;
+                        let message = parsedObject?.object(forKey: "message") as! String;
                         var code : Int?
-                        code = parsedObject?.objectForKey("status_code")?.integerValue;
+                        code = parsedObject?.object(forKey: "status_code") as? Int
                         
                         if (code == nil){
-                            code = parsedObject?.objectForKey("status_code")?.integerValue;
+                            code = (parsedObject?.object(forKey: "status_code") as AnyObject).intValue;
                         }
                         
                         let myError = NSError(domain: message, code: code!, userInfo: nil)
                         
-                        dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                            failureHandler(error: myError ,isCustomError: true);
+                        DispatchQueue.main.async(execute: { () -> Void in
+                            failureHandler(myError ,true);
                         })
                     }
                     
                 }
                 
             }
+            
         }
         
-        return true;
+        urlseesion.resume()
     }
     
-    func callGetWebServiceReturnFullData(methodURL :String, completionHandler:webCompletionHandler, failureHandler: webFailuerHandler) -> Bool
+    func callGetWebServiceReturnFullData(_ methodURL :String, completionHandler:@escaping webCompletionHandler, failureHandler: @escaping webFailuerHandler)
     {
         if (isInternetHasConnectivity() == false ) {
             let myError = NSError(domain: "Internet is not available", code: 1001, userInfo: nil)
-            failureHandler( error: myError ,isCustomError: false);
-            return false;
+            failureHandler( myError ,false);
         }
+        
 //        if(sharedAppDelegate.isActivityLoaderRequired){
 //            //Show Activity Indicator
 //            DBActivityLoader.sharedActivityLoader.startAnimation()
 //        }
-        let characterSet = NSCharacterSet.URLQueryAllowedCharacterSet();
-        let finalmethodURL = methodURL.stringByAddingPercentEncodingWithAllowedCharacters(characterSet);
         
-        let url: NSURL = NSURL(string: finalmethodURL!)!
-        let request: NSMutableURLRequest = NSMutableURLRequest(URL: url)
+        let characterSet = CharacterSet.urlQueryAllowed;
+        let finalmethodURL = methodURL.addingPercentEncoding(withAllowedCharacters: characterSet);
         
-        request.HTTPMethod = "GET";
+        let url: URL = URL(string: finalmethodURL!)!
+        let request: NSMutableURLRequest = NSMutableURLRequest(url: url)
         
-        NSURLConnection.sendAsynchronousRequest(request, queue: NSOperationQueue()) { (response:NSURLResponse?, data: NSData?, error: NSError?) -> Void in
+        request.httpMethod = "GET";
+        print(methodURL);
+        
+        let urlseesion = URLSession.shared.dataTask(with: request as URLRequest) { (data, resposne, error) in
             
-            //Hide Activity
-//            DBActivityLoader.sharedActivityLoader.stopAnimating()
-//            sharedAppDelegate.isActivityLoaderRequired = true
-            
-            dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                
+            DispatchQueue.main.async(execute: { () -> Void in
+              
                 
                 if(error != nil){
-                    let myError = NSError(domain: error!.description, code: error!.code, userInfo: nil)
+                    let myError = NSError(domain: (error as! NSError).description, code: (error as! NSError).code, userInfo: nil)
                     
-                    failureHandler( error: myError ,isCustomError: false);
+                    failureHandler( myError ,false);
                 }
                 else{
                     
                     if(data != nil){
-                        completionHandler(data: data!)
+                        completionHandler(data!)
                     }
                 }
             })
+            
         }
         
-        return true;
+        urlseesion.resume()
+        
     }
     
-    func stringFromDictionary (dic:NSMutableDictionary)->String{
+    func stringFromDictionary (_ dic:NSMutableDictionary)->String{
         var strFormData : String = "";
         var i = 0;
         
@@ -379,30 +423,67 @@ class WebServiceCall :NSObject {
         return strFormData;
     }
     
-    func dataFromDictionary(dic:NSMutableDictionary)->NSData{
+    func dataFromDictionary(_ dic:NSMutableDictionary)->Data{
         
         let strFormData = self.stringFromDictionary(dic);
         
-        let formData : NSData = strFormData.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: false)!;
+        let formData : Data = strFormData.data(using: String.Encoding.utf8, allowLossyConversion: false)!;
         return formData;
         
     }
     
-    func isInternetHasConnectivity() -> Bool {
+    class func parseQueryParams(_ str : String) -> NSMutableDictionary{
         
-        var flag = false
+        let dic = NSMutableDictionary()
+            for parameter in str.components(separatedBy: "&"){
+                let parts = parameter.components(separatedBy: "=")
+                if parts.count > 1{
+                    let key = (parts[0] as String).removingPercentEncoding
+                    let value = (parts[1] as String).removingPercentEncoding
+                    if key != nil && value != nil{
+                        dic.setObject(value!, forKey: key! as NSCopying)
+                    }
+                }
+            }
         
-        do {
-            let reachability  = try Reachability.reachabilityForInternetConnection()
-            flag = reachability.isReachable()
-        }
-        catch {
-            
-        }
-        
-        return flag
-        
+        return dic
     }
-
+    //MARK: -  Helper Method
     
+    
+    class func parseData(_ jsonData:Data) -> NSMutableDictionary?
+    {
+        var mutableDict:NSMutableDictionary?
+        do
+        {
+            if(jsonData.count > 0){
+                mutableDict = try JSONSerialization.jsonObject(with: jsonData, options: JSONSerialization.ReadingOptions.mutableContainers) as? NSMutableDictionary;
+            }else{
+                
+                print(" Error No data to parse \n Please check this Response DATA \n\n  \(NSString(data: jsonData, encoding: String.Encoding.utf8.rawValue)!)");
+            }
+            
+        }catch
+        {
+            print("Error in parsing \n Please check this Response DATA \n\n  \(NSString(data: jsonData, encoding: String.Encoding.utf8.rawValue)!)");
+        }
+        
+        return mutableDict;
+    }
+    
+    class func makeJsonData(_ object:AnyObject) -> Data?
+    {
+        do
+        {
+            let data = try JSONSerialization.data(withJSONObject: object, options: JSONSerialization.WritingOptions())
+            return data;
+        }catch
+        {
+            print("can not make json of \(object)");
+        }
+        
+        return nil;
+    }
+    
+
 }
