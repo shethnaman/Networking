@@ -1,6 +1,6 @@
 //
 //  WebServiceCall.swift
-//  DriveBuddy
+//  iUDAME
 //
 //  Created by Arvaan Techno-lab Pvt Ltd on 18/06/15.
 //  Copyright (c) 2015 Arvaan Techno-lab Pvt Ltd. All rights reserved.
@@ -9,28 +9,14 @@
 import UIKit
 import MobileCoreServices
 import CoreLocation
+import SVProgressHUD
 
-extension NSMutableData {
-    
-    //==========================================
-    //MARK: - To append string as a NSData
-    //==========================================
-    
-    func appendString(_ string: String) {
-        let data = string.data(using: String.Encoding.utf8, allowLossyConversion: true)
-        append(data!)
-    }
-    
-}
 typealias webCompletionHandler = (_ data : Data) -> Void;
 typealias webFailuerHandler = (_ error : NSError,_ isCustomError : Bool) -> Void;
 
 //typealias webHandler = (status:Bool,message:String?,userDict:NSMutableDictionary?)->Void
 
-enum AppSecret {
-    static let clientkeyforIOS = "02b960c3482efa7fe4e99e97262559c56026d893"
-    static let clientsecretforIOS = "e3f0d4f914db73e3b0e794ff486d63aa5d86e657"
-}
+
 
 let failureStatusCode = 0;
 let successStatusCode = 200;
@@ -42,25 +28,29 @@ class WebServiceCall :NSObject {
     override init() {
         
     }
-    
+    /*
     func setRequiredHeadersForRequest(_ urlRequest:NSMutableURLRequest)
     {
-        urlRequest.setValue(AppSecret.clientkeyforIOS, forHTTPHeaderField:UserData.kClientKey)
-        urlRequest.setValue(AppSecret.clientsecretforIOS, forHTTPHeaderField:UserData.kClientsecret)
-      
-        //    let user = AppData.sharedInstance().getModelForKey(key: BeaverQUserDefault.KeyUserInfo) as! User
-          //  urlRequest.setValue(user.userLoginToken!, forHTTPHeaderField: UserData.kUserAccessToken)
-            
-      
-//        else
-//        {
-//            urlRequest.setValue("dfsbvdfbdfbfd", forHTTPHeaderField: UserData.kUserAccessToken)
-//        }
         
-       print(urlRequest.allHTTPHeaderFields!)
+        urlRequest.setValue("ios", forHTTPHeaderField: "ostype")
+        urlRequest.setValue("1.0", forHTTPHeaderField: "appversion");
+        
+        
+        if (AppData.sharedInstance().isUserSignedIn())
+        {
+            let user = AppData.sharedInstance().getModelForKey(key: KEMUserDefault.KeyUserInfo) as! User
+            urlRequest.setValue(user.userLoginToken!, forHTTPHeaderField: UserData.kUserAccessToken)
+            
+        }
+        else
+        {
+            urlRequest.setValue("", forHTTPHeaderField: UserData.kUserAccessToken)
+        }
+        
+        
         
     }
-    
+    */
     func createBodyWithParameters(_ parameters: NSDictionary?,boundary: String) -> Data {
         let body = NSMutableData()
         
@@ -153,101 +143,91 @@ class WebServiceCall :NSObject {
         let url = URL(string: strURL)
         let request = NSMutableURLRequest(url: url!)
         
-        self.setRequiredHeadersForRequest(request);
+        //self.setRequiredHeadersForRequest(request);
         
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
         request.httpBody = createBodyWithParameters(param, boundary: boundary)
-        
-       //  let response = UtilityClass.parseData(request.httpBody!)
-        print(request.httpBody!.description)
         return request as URLRequest
     }
     
     /*
-    func callPostWebService(methodURL methodURL :String, param:NSDictionary, handler : webHandler) -> Bool
-    {
-        
-        let request = self.createRequest(param, strURL: methodURL)
-        
-        let serviceTask = NSURLSession.sharedSession().dataTaskWithRequest(request, completionHandler: {
-            data, response, error in
-            
-            dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                
-                if(error != nil){
-                    
-                    handler(status: false, message: error?.localizedDescription, userDict: nil);
-                }
-                else{
-                    
-                    let response = Utilities.parseData(data!)
-                    let status = response.objectForKey("status") as! Int;
-                    
-                    if(status == failureStatusCode){
-                        handler(status: false, message: response.objectForKey("message") as? String, userDict: nil);
-                    }
-                    else {
-                        handler(status: true, message: response.objectForKey("message") as? String, userDict: response);
-                    }
-                    
-                }
-                
-            })
-            
-            
-        })
-        serviceTask.resume();
-        
-        return true;
-    }
-    */
+     func callPostWebService(methodURL methodURL :String, param:NSDictionary, handler : webHandler) -> Bool
+     {
+     
+     let request = self.createRequest(param, strURL: methodURL)
+     
+     let serviceTask = NSURLSession.sharedSession().dataTaskWithRequest(request, completionHandler: {
+     data, response, error in
+     
+     dispatch_async(dispatch_get_main_queue(), { () -> Void in
+     
+     if(error != nil){
+     
+     handler(status: false, message: error?.localizedDescription, userDict: nil);
+     }
+     else{
+     
+     let response = Utilities.parseData(data!)
+     let status = response.objectForKey("status") as! Int;
+     
+     if(status == failureStatusCode){
+     handler(status: false, message: response.objectForKey("message") as? String, userDict: nil);
+     }
+     else {
+     handler(status: true, message: response.objectForKey("message") as? String, userDict: response);
+     }
+     
+     }
+     
+     })
+     
+     
+     })
+     serviceTask.resume();
+     
+     return true;
+     }
+     */
     
     func callPostWebService(methodURL :String, param:NSDictionary, completionHandler:@escaping webCompletionHandler, failureHandler: @escaping webFailuerHandler)
     {
         if (isInternetHasConnectivity() == false ) {
             let myError = NSError(domain: "Internet is not available", code: 1001, userInfo: nil)
             failureHandler(myError, true);
-//            AlertView.showMessageAlert(myError.domain)
+            //            AlertView.showMessageAlert(myError.domain)
             return
         }
         
-//        if(sharedAppDelegate.isActivityLoaderRequired){
-//            //Show Activity Indicator
-//            DBActivityLoader.sharedActivityLoader.startAnimation()
-//        }
+       SVProgressHUD.show()
         
         let request = self.createRequest(param, strURL: methodURL)
-        print(request)
+        
         let serviceTask = URLSession.shared.dataTask(with: request, completionHandler: {
             data, response, error in
             
             DispatchQueue.main.async(execute: { () -> Void in
-               
+                //Hide Activity
+               SVProgressHUD.dismiss()
                 if(error != nil){
                     
                     failureHandler(error! as NSError, false);
                 }
                 else{
-                   print(NSString(data: data!, encoding: String.Encoding.utf8.rawValue)!);
+                    print(NSString(data: data!, encoding: String.Encoding.utf8.rawValue)!);
                     let response = UtilityClass.parseData(data!)
-                   // print(response)
-                    let status = response?.object(forKey: "status_code") as? Int;
+                    print(response!)
+                    let status = response?.object(forKey: "status") as? Int;
                     
                     if(status == successStatusCode){
                         completionHandler(data!)
                     }else if(status == 504){
                         let dictRequests = UtilityClass.parseData(data!)
-                      
-                        let alert = UIAlertController(title: "Error", message: dictRequests!.object(forKey: "message") as? String, preferredStyle: UIAlertControllerStyle.alert)
-                        alert.addAction(UIAlertAction(title: "Ok", style: UIAlertActionStyle.default, handler: nil))
-                         let visibleVC = UIApplication.topViewController(UIApplication.shared.keyWindow?.rootViewController)
-                        visibleVC?.present(alert, animated: true, completion: nil)
-
-                    }else if (response?.object(forKey: "access_token") != nil){
-                        let accessToken = response?.object(forKey: "access_token") as! String
-                        print(accessToken)
-                        completionHandler(data!)
+                        
+                        UtilityClass.showAlertWithMessage("Error", andMessage: dictRequests!.object(forKey: "message") as! String, andAlertType: AlertType.SUCESS, withDismissHandler: {
+                            
+                            
+                        })
                     }
                     else {
                         let msg = response?.object(forKey: "message") as! String
@@ -274,26 +254,30 @@ class WebServiceCall :NSObject {
             //            AlertView.showMessageAlert(myError.domain)
             
         }
-//        
+
+        SVProgressHUD.show()
 //        if(sharedAppDelegate.isActivityLoaderRequired){
 //            //Show Activity Indicator
 //            DBActivityLoader.sharedActivityLoader.startAnimation()
 //        }
-//        
+        
         print("methodURL \(methodURL)")
-
-      //  let url: URL = URL(string: methodURL.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed)!)!
+        
+        //  let url: URL = URL(string: methodURL.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed)!)!
         let url: URL = URL(string: methodURL)!
         let request: NSMutableURLRequest = NSMutableURLRequest(url:url)
         
-        self.setRequiredHeadersForRequest(request);
+       // self.setRequiredHeadersForRequest(request);
         
         request.httpMethod = "GET";
         
         let urlseesion = URLSession.shared.dataTask(with: request as URLRequest) { (data, resposne, error) in
-           
+            
             //Hide Activity
-           
+            SVProgressHUD.dismiss()
+            //            DBActivityLoader.sharedActivityLoader.stopAnimating()
+//            sharedAppDelegate.isActivityLoaderRequired = true
+//            
             if(error != nil){
                 
                 let myError = NSError(domain: (error as! NSError).description, code: (error as! NSError).code, userInfo: nil)
@@ -305,34 +289,33 @@ class WebServiceCall :NSObject {
                 
                 do {
                     parsedObject = try JSONSerialization.jsonObject(with: data!,options: [JSONSerialization.ReadingOptions.allowFragments, JSONSerialization.ReadingOptions.mutableContainers]) as? NSMutableDictionary;
-                   
+                    print(parsedObject)
                 } catch _ {
                     NSLog("Get method Parsing error ");
                     parsedObject = nil
                 }
-               
-                if(parsedObject?.object(forKey: "status_code") as? Int == 200){
+                
+                if(parsedObject?.object(forKey: "status") as? Int == 200){
                     
                     DispatchQueue.main.async(execute: { () -> Void in
                         completionHandler( data!);
                     })
                     
                 }
-                else if(parsedObject?.object(forKey: "status_code") as? Int == 200){
+                else if(parsedObject?.object(forKey: "status") as? Int == 200){
                     
                     DispatchQueue.main.async(execute: { () -> Void in
                         completionHandler( data!);
                     })
                     
                 }
-                else if((parsedObject!.object(forKey: "status_code")! as AnyObject).intValue == 504){
+                else if((parsedObject!.object(forKey: "status")! as AnyObject).intValue == 504){
                     let dictRequests = UtilityClass.parseData(data!)
-                    let alert = UIAlertController(title: "Error", message:dictRequests!.object(forKey: "message") as? String, preferredStyle: UIAlertControllerStyle.alert)
-                    alert.addAction(UIAlertAction(title: "Ok", style: UIAlertActionStyle.default, handler: nil))
-                     let visibleVC = UIApplication.topViewController(UIApplication.shared.keyWindow?.rootViewController)
-                    visibleVC?.present(alert, animated: true, completion: nil)
-                    
-                  
+                    UtilityClass.showAlertWithMessage("Error", andMessage: dictRequests!.object(forKey: "message") as! String, andAlertType: AlertType.SUCESS, withDismissHandler: {
+                        
+                        
+                       // sharedAppDelegate.sessionExpired()
+                    })
                 }
                 else{
                     
@@ -340,10 +323,10 @@ class WebServiceCall :NSObject {
                         
                         let message = parsedObject?.object(forKey: "message") as! String;
                         var code : Int?
-                        code = parsedObject?.object(forKey: "status_code") as? Int
+                        code = parsedObject?.object(forKey: "status") as? Int
                         
                         if (code == nil){
-                            code = (parsedObject?.object(forKey: "status_code") as AnyObject).intValue;
+                            code = (parsedObject?.object(forKey: "status") as AnyObject).intValue;
                         }
                         
                         let myError = NSError(domain: message, code: code!, userInfo: nil)
@@ -369,10 +352,7 @@ class WebServiceCall :NSObject {
             failureHandler( myError ,false);
         }
         
-//        if(sharedAppDelegate.isActivityLoaderRequired){
-//            //Show Activity Indicator
-//            DBActivityLoader.sharedActivityLoader.startAnimation()
-//        }
+        SVProgressHUD.show()
         
         let characterSet = CharacterSet.urlQueryAllowed;
         let finalmethodURL = methodURL.addingPercentEncoding(withAllowedCharacters: characterSet);
@@ -386,7 +366,8 @@ class WebServiceCall :NSObject {
         let urlseesion = URLSession.shared.dataTask(with: request as URLRequest) { (data, resposne, error) in
             
             DispatchQueue.main.async(execute: { () -> Void in
-              
+                //Hide Activity
+                SVProgressHUD.dismiss()
                 
                 if(error != nil){
                     let myError = NSError(domain: (error as! NSError).description, code: (error as! NSError).code, userInfo: nil)
@@ -435,55 +416,17 @@ class WebServiceCall :NSObject {
     class func parseQueryParams(_ str : String) -> NSMutableDictionary{
         
         let dic = NSMutableDictionary()
-            for parameter in str.components(separatedBy: "&"){
-                let parts = parameter.components(separatedBy: "=")
-                if parts.count > 1{
-                    let key = (parts[0] as String).removingPercentEncoding
-                    let value = (parts[1] as String).removingPercentEncoding
-                    if key != nil && value != nil{
-                        dic.setObject(value!, forKey: key! as NSCopying)
-                    }
+        for parameter in str.components(separatedBy: "&"){
+            let parts = parameter.components(separatedBy: "=")
+            if parts.count > 1{
+                let key = (parts[0] as String).removingPercentEncoding
+                let value = (parts[1] as String).removingPercentEncoding
+                if key != nil && value != nil{
+                    dic.setObject(value!, forKey: key! as NSCopying)
                 }
             }
+        }
         
         return dic
     }
-    //MARK: -  Helper Method
-    
-    
-    class func parseData(_ jsonData:Data) -> NSMutableDictionary?
-    {
-        var mutableDict:NSMutableDictionary?
-        do
-        {
-            if(jsonData.count > 0){
-                mutableDict = try JSONSerialization.jsonObject(with: jsonData, options: JSONSerialization.ReadingOptions.mutableContainers) as? NSMutableDictionary;
-            }else{
-                
-                print(" Error No data to parse \n Please check this Response DATA \n\n  \(NSString(data: jsonData, encoding: String.Encoding.utf8.rawValue)!)");
-            }
-            
-        }catch
-        {
-            print("Error in parsing \n Please check this Response DATA \n\n  \(NSString(data: jsonData, encoding: String.Encoding.utf8.rawValue)!)");
-        }
-        
-        return mutableDict;
-    }
-    
-    class func makeJsonData(_ object:AnyObject) -> Data?
-    {
-        do
-        {
-            let data = try JSONSerialization.data(withJSONObject: object, options: JSONSerialization.WritingOptions())
-            return data;
-        }catch
-        {
-            print("can not make json of \(object)");
-        }
-        
-        return nil;
-    }
-    
-
 }
